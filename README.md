@@ -9,9 +9,9 @@ This PoC asks two questions:
 1. **If an AI payment agent reads a fraudster's instructions hidden in a payment message, which defences actually stop the money from leaving?**
 2. **If fraudsters change their behaviour, how much does a real-time fraud model miss, and does adversarial training help?**
 
-**[View the interactive dashboard →](https://YOUR-USERNAME.github.io/fps-ai-security-poc/)**
+**[View the interactive dashboard →](https://Sarjeant.github.io/fps-ai-security-poc/)**
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/YOUR-USERNAME/fps-ai-security-poc/blob/main/notebooks/fps_ai_security_poc.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Sarjeant/fps-ai-security-poc/blob/main/notebooks/fps_ai_security_poc.ipynb)
 
 > v0.1 uses synthetic data and a simulated agent. See [Limits](#limits) before citing any number.
 
