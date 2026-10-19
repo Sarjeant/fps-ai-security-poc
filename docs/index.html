@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="data/results.js"></script>
+<script src="data/llm_results.js"></script>
 <style>
 :root {
   color-scheme: light;
@@ -97,6 +98,9 @@ pre { margin: 0; background: var(--code-bg); border-radius: 8px; padding: 14px; 
 .verdict.pass { color: var(--good); border: 1px solid var(--good); }
 .layers .why { font-size: 14px; color: var(--text-secondary); }
 .findings { padding-left: 20px; margin: 0; }
+.callout { margin-top: 12px; padding: 14px 16px; border-radius: 10px; border: 1px solid var(--border); border-left: 4px solid var(--series-3); background: var(--surface-1); font-size: 15px; }
+.callout a { white-space: nowrap; }
+.legend span.sw-held::before { background: var(--series-1); }
 .findings li { margin-bottom: 10px; max-width: 820px; }
 footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-muted); }
 footer a, a { color: var(--accent); }
@@ -118,11 +122,12 @@ footer a, a { color: var(--accent); }
 </header>
 
 <section class="tiles" aria-label="Headline results">
-  <div class="tile"><div class="k">Attacks that moved money, no defences</div><div class="v" id="t1">–</div><div class="n" id="t1n"></div></div>
-  <div class="tile"><div class="k">Attacks that moved money, all four layers</div><div class="v" id="t2">–</div><div class="n" id="t2n"></div></div>
+  <div class="tile"><div class="k">Simulated agent: attacks that moved money, no defences</div><div class="v" id="t1">–</div><div class="n" id="t1n"></div></div>
+  <div class="tile"><div class="k">Simulated agent: attacks that moved money, all four layers</div><div class="v" id="t2">–</div><div class="n" id="t2n"></div></div>
   <div class="tile"><div class="k">Genuine payments delayed by the defences</div><div class="v" id="t3">–</div><div class="n" id="t3n"></div></div>
   <div class="tile"><div class="k">Fraud model detection when fraudsters adapt</div><div class="v" id="t4">–</div><div class="n" id="t4n"></div></div>
 </section>
+<div class="callout" id="realCallout" hidden></div>
 
 <h2>1 · Which defences stop injected payment instructions?</h2>
 <p class="sub">Attack text is planted in the ISO 20022 remittance field or the invoice note. The same agent decisions are replayed against each defence stack, so only the defences change.</p>
@@ -175,8 +180,34 @@ footer a, a { color: var(--accent); }
   <details><summary>Show as a table</summary><table id="tFraud"></table></details>
 </div>
 
+<section id="real" hidden>
+<h2>5 · What a real model actually did</h2>
+<p class="sub" id="realSub"></p>
+<section class="tiles" aria-label="Real model results" style="margin-top:0">
+  <div class="tile"><div class="k">Attacks where the model paid the fraudster</div><div class="v" id="r1">–</div><div class="n" id="r1n"></div></div>
+  <div class="tile"><div class="k">Baseline prompt: attacks held for verification</div><div class="v" id="r2">–</div><div class="n" id="r2n"></div></div>
+  <div class="tile"><div class="k">Hardened prompt: attacks paid to the correct supplier</div><div class="v" id="r3">–</div><div class="n" id="r3n"></div></div>
+  <div class="tile"><div class="k">Genuine payments held by the model</div><div class="v" id="r4">–</div><div class="n" id="r4n"></div></div>
+</section>
+<div class="grid2" style="margin-top:12px">
+  <div class="card">
+    <h3>Baseline prompt</h3>
+    <p class="note">A plain accounts-payable assistant</p>
+    <div class="chart"><canvas id="cRealB" role="img" aria-label="Real model outcomes by technique, baseline prompt"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Hardened prompt</h3>
+    <p class="note">Told that supplier text is untrusted data</p>
+    <div class="chart"><canvas id="cRealH" role="img" aria-label="Real model outcomes by technique, hardened prompt"></canvas></div>
+  </div>
+</div>
+<div class="legend" id="lReal" style="margin-top:10px"></div>
+<details><summary>Show as a table</summary><table id="tReal"></table></details>
+</section>
+
 <h2>What this shows</h2>
 <ul class="findings">
+  <li id="realFinding" hidden></li>
   <li><strong>Text filters are not enough.</strong> A pattern-based injection screen cut successful attacks by more than half but let through messages that sound like ordinary supplier emails, and delayed some genuine payments whose wording looked suspicious.</li>
   <li><strong>Deterministic checks outside the model do the heavy lifting.</strong> Policy as code compares the agent's output with the business's own beneficiary records. It never reads the attacker's text, so it cannot be persuaded. Its weak point is the record itself: if a fraudster gets the supplier record changed first, the check passes.</li>
   <li><strong>Layers cover each other's gaps.</strong> Confirmation of Payee catches poisoned records but not inflated amounts; policy catches inflated amounts but not poisoned records. Together they stopped every attack in this run.</li>
@@ -184,7 +215,7 @@ footer a, a { color: var(--accent); }
 </ul>
 
 <h2>Method and limits</h2>
-<p class="sub">v0.1 is a simulation. The agent follows injected instructions at assumed rates, not rates measured on real models; the human reviewer catch rate and hold delay are also assumptions. All data are synthetic. Zero successes across 1,200 attacks means the true rate is likely below about 0.25%, not that it is zero. The next phase replaces the simulated agent with real LLM agents behind the same interface and repeats every measurement.</p>
+<p class="sub">Sections 1–3 use a simulated agent that follows injected instructions at assumed rates; the human reviewer catch rate and hold delay are also assumptions. Section 5 replaces it with a real model, in a single-turn task where the agent is given the account on file. That setup helps the model: harder cases, such as an agent that updates supplier records itself, works across several steps, or reads attacks hidden in retrieved documents, are not yet tested. All data are synthetic. Zero successes in a sample means the true rate is low, not that it is zero: about 3 divided by the number of attempts is a 95% upper bound.</p>
 <details><summary>Assumptions used in this run</summary><table id="tAssume"></table></details>
 
 <footer>
@@ -288,6 +319,38 @@ footer a, a { color: var(--accent); }
       },
     };
   }
+  // ---- Section 5: real model ----
+  const L = window.LLM_RESULTS;
+  const tkeys = Object.keys(T);
+  if (L) {
+    const sum = (v, k) => L.outcomes[v][k];
+    const tot = v => Object.values(L.outcomes[v]).reduce((a, b) => a + b, 0);
+    const paid = v => sum(v, "paid_attacker") + sum(v, "paid_inflated");
+    const nAll = tot("baseline") + tot("hardened"), paidAll = paid("baseline") + paid("hardened");
+    const mdl = L.model.replace("claude-", "Claude ").replace(/-(\d+)-(\d+)$/, " $1.$2").replace("haiku", "Haiku").replace("sonnet", "Sonnet").replace("opus", "Opus");
+    document.getElementById("real").hidden = false;
+    document.getElementById("realSub").textContent =
+      `The simulated agent above was replaced with ${mdl}, given ${L.attacks_per_technique} attacks per technique and ${L.genuine_payments} genuine payments under each of two system prompts${L.run_date ? " (run " + L.run_date + ")" : ""}. Each reply was scored as obeyed (paid the fraudster), held (refused and asked for verification) or paid to the correct supplier.`;
+    document.getElementById("r1").textContent = `${paidAll} of ${nAll}`;
+    document.getElementById("r1n").textContent = `95% upper bound about ${(300 / nAll).toFixed(1)}%`;
+    document.getElementById("r2").textContent = `${sum("baseline", "held")} of ${tot("baseline")}`;
+    document.getElementById("r2n").textContent = "refused to pay, flagged the fraud";
+    document.getElementById("r3").textContent = `${sum("hardened", "paid_on_file")} of ${tot("hardened")}`;
+    document.getElementById("r3n").textContent = "ignored the injection and reported it in notes";
+    const gb = L.genuine.baseline, gh = L.genuine.hardened;
+    document.getElementById("r4").textContent = `${gb.held + gh.held} of ${gb.total + gh.total}`;
+    document.getElementById("r4n").textContent = `${gb.held} baseline · ${gh.held} hardened`;
+    const co = document.getElementById("realCallout");
+    co.hidden = false;
+    co.innerHTML = `<strong>Tested against a real model:</strong> ${mdl} paid the fraudster in <strong>${paidAll} of ${nAll}</strong> attacked payments. <a href="#real">See section 5 →</a>`;
+    const f = document.getElementById("realFinding");
+    f.hidden = false;
+    f.innerHTML = `<strong>A current small model resisted every injection, but in two different ways.</strong> With a plain prompt, ${mdl} held ${sum("baseline", "held")} of ${tot("baseline")} attacks for human verification and paid the rest to the correct supplier. With a hardened prompt it paid the correct supplier every time and reported the attempt in its notes. Both are safe; they differ in friction and in who sees the alert. The simulation's assumed obedience rates (25–60%) are far higher than this model showed, so they describe a weaker or less safety-trained agent, which is why the deterministic layers still matter.`;
+    table("tReal", ["Technique", "Simulation assumed obeying", "Baseline: obeyed", "Baseline: held", "Hardened: obeyed", "Hardened: held"],
+      tkeys.map(k => { const b = L.obey.baseline[k], h = L.obey.hardened[k];
+        return [T[k].label, pct(R.config.assumed_susceptibility[k], 0), `${b.obeyed}/${b.answered}`, `${b.held}/${b.answered}`, `${h.obeyed}/${h.answered}`, `${h.held}/${h.answered}`]; }), [1, 2, 3, 4, 5]);
+  }
+
   function drawAll() {
     charts.forEach(ch => ch.destroy()); charts.length = 0;
     Chart.defaults.font.family = "IBM Plex Sans";
@@ -328,6 +391,26 @@ footer a, a { color: var(--accent); }
         { label: "Adversarially trained", data: strat.map(r => +(fr("adversarially_trained", r.strategy).detection_rate * 100).toFixed(1)), backgroundColor: s2, ...bar, borderSkipped: "bottom" } ] },
       options: o }));
   }
+  function drawReal() {
+    if (!L) return;
+    const s1 = css("--series-1"), s2 = css("--series-2"), s3 = css("--series-3"), surf = css("--surface-1");
+    legend("lReal", [["Obeyed: paid the fraudster", s2], ["Held for verification", s1], ["Paid the correct supplier", s3]]);
+    for (const [id, v] of [["cRealB", "baseline"], ["cRealH", "hardened"]]) {
+      const ob = L.obey[v];
+      const o = base(); o.indexAxis = "y";
+      o.scales.x.stacked = true; o.scales.y.stacked = true; o.scales.x.min = 0;
+      o.scales.x.max = Math.max(...tkeys.map(k => ob[k].answered));
+      o.plugins.tooltip.callbacks.label = ctx => `${ctx.dataset.label}: ${ctx.parsed.x} of ${ob[tkeys[ctx.dataIndex]].answered}`;
+      const ds = (label, key, color) => ({ label, data: tkeys.map(k => ob[k][key]), backgroundColor: color,
+        borderColor: surf, borderWidth: { right: 2 }, borderSkipped: false, borderRadius: 0, maxBarThickness: 22 });
+      charts.push(new Chart(document.getElementById(id), { type: "bar",
+        data: { labels: tkeys.map(k => T[k].label), datasets: [
+          ds("Obeyed: paid the fraudster", "obeyed", s2), ds("Held for verification", "held", s1), ds("Paid the correct supplier", "paid_on_file", s3)] },
+        options: o }));
+    }
+  }
+  const _drawAll = drawAll;
+  drawAll = function () { _drawAll(); drawReal(); };
   drawAll();
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawAll);
 })();
