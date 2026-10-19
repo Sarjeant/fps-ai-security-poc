@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Payment Agent Security</title>
+<meta name="description" content="Red-teaming AI payment agents and fraud models on a simulated instant-payment system.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="data/results.js"></script>
+<style>
+:root {
+  color-scheme: light;
+  --surface-0: #f4f3ef;
+  --surface-1: #fcfcfb;
+  --border: #e2e0d8;
+  --grid: #ecebe5;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #7a7974;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --good: #008300;
+  --critical: #c42b2b;
+  --code-bg: #f1f0ea;
+  --accent: #2a78d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-0: #121211;
+    --surface-1: #1a1a19;
+    --border: #2e2e2b;
+    --grid: #262624;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #8f8e86;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --good: #3fae3f;
+    --critical: #e66767;
+    --code-bg: #222220;
+    --accent: #6da7ec;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-0: #121211; --surface-1: #1a1a19; --border: #2e2e2b; --grid: #262624;
+  --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+  --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70;
+  --good: #3fae3f; --critical: #e66767; --code-bg: #222220; --accent: #6da7ec;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--surface-0); color: var(--text-primary);
+  font: 16px/1.55 "IBM Plex Sans", system-ui, sans-serif;
+}
+main { max-width: 1080px; margin: 0 auto; padding: 40px 16px 64px; }
+header .eyebrow { font: 500 12px/1 "IBM Plex Mono", monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+h1 { font-size: clamp(28px, 4.5vw, 42px); line-height: 1.12; margin: 12px 0 12px; font-weight: 600; letter-spacing: -.01em; }
+header p.lede { font-size: 18px; color: var(--text-secondary); max-width: 760px; margin: 0; }
+.badge { display: inline-block; margin-top: 16px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; font: 500 12px "IBM Plex Mono", monospace; color: var(--text-secondary); background: var(--surface-1); }
+h2 { font-size: 22px; margin: 56px 0 6px; font-weight: 600; }
+h2 + p.sub { color: var(--text-secondary); margin: 0 0 18px; max-width: 760px; }
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 32px; }
+.tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.tile .k { font-size: 13px; color: var(--text-secondary); }
+.tile .v { font: 600 30px/1.1 "IBM Plex Sans", sans-serif; margin: 8px 0 4px; font-variant-numeric: tabular-nums; }
+.tile .n { font-size: 13px; color: var(--text-muted); }
+.grid2 { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 18px; min-width: 0; }
+.card h3 { font-size: 15px; margin: 0 0 4px; font-weight: 600; }
+.card .note { font-size: 13px; color: var(--text-muted); margin: 0 0 12px; }
+.chart { position: relative; height: 320px; }
+.chart.tall { height: 360px; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--text-secondary); margin: 0 0 10px; }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; background: var(--c); }
+details { margin-top: 12px; font-size: 14px; }
+summary { cursor: pointer; color: var(--accent); }
+table { border-collapse: collapse; width: 100%; margin-top: 8px; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+th { color: var(--text-secondary); font-weight: 500; }
+td.num, th.num { text-align: right; }
+.trace { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field { font-size: 13px; color: var(--text-muted); margin: 0 0 4px; }
+.val { margin: 0 0 14px; overflow-wrap: anywhere; }
+pre { margin: 0; background: var(--code-bg); border-radius: 8px; padding: 14px; overflow-x: auto; font: 12.5px/1.5 "IBM Plex Mono", monospace; color: var(--text-primary); }
+.layers { list-style: none; padding: 0; margin: 0; }
+.layers li { display: flex; gap: 10px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.layers li:last-child { border-bottom: 0; }
+.verdict { font: 500 12px "IBM Plex Mono", monospace; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+.verdict.stop { color: var(--critical); border: 1px solid var(--critical); }
+.verdict.warn { color: var(--text-secondary); border: 1px solid var(--border); }
+.verdict.pass { color: var(--good); border: 1px solid var(--good); }
+.layers .why { font-size: 14px; color: var(--text-secondary); }
+.findings { padding-left: 20px; margin: 0; }
+.findings li { margin-bottom: 10px; max-width: 820px; }
+footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-muted); }
+footer a, a { color: var(--accent); }
+.toggle { float: right; background: var(--surface-1); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: 13px "IBM Plex Sans", sans-serif; cursor: pointer; }
+@media (max-width: 820px) {
+  .tiles { grid-template-columns: repeat(2, 1fr); }
+  .grid2, .trace { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <button class="toggle" id="theme" type="button" aria-label="Toggle light or dark theme">Theme</button>
+  <div class="eyebrow">Fast Payments · AI Security · Proof of concept</div>
+  <h1>Securing AI agents on instant-payment rails</h1>
+  <p class="lede">What happens when an AI assistant that pays invoices reads a fraudster's instructions hidden in the payment message? And can fraudsters change their behaviour to slip past a real-time fraud model? This PoC measures both, and tests which defences actually stop the money from leaving.</p>
+  <span class="badge" id="meta">Synthetic data · simulated agent</span>
+</header>
+
+<section class="tiles" aria-label="Headline results">
+  <div class="tile"><div class="k">Attacks that moved money, no defences</div><div class="v" id="t1">–</div><div class="n" id="t1n"></div></div>
+  <div class="tile"><div class="k">Attacks that moved money, all four layers</div><div class="v" id="t2">–</div><div class="n" id="t2n"></div></div>
+  <div class="tile"><div class="k">Genuine payments delayed by the defences</div><div class="v" id="t3">–</div><div class="n" id="t3n"></div></div>
+  <div class="tile"><div class="k">Fraud model detection when fraudsters adapt</div><div class="v" id="t4">–</div><div class="n" id="t4n"></div></div>
+</section>
+
+<h2>1 · Which defences stop injected payment instructions?</h2>
+<p class="sub">Attack text is planted in the ISO 20022 remittance field or the invoice note. The same agent decisions are replayed against each defence stack, so only the defences change.</p>
+<div class="grid2">
+  <div class="card">
+    <h3>Attacks that moved money</h3>
+    <p class="note">Share of all attempted attacks where the redirected or inflated payment was released</p>
+    <div class="chart"><canvas id="cStack" role="img" aria-label="Attack success rate by defence stack"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Cost to genuine customers</h3>
+    <p class="note">Share of legitimate payments held for review or blocked</p>
+    <div class="chart"><canvas id="cFriction" role="img" aria-label="Legitimate payments held by defence stack"></canvas></div>
+  </div>
+</div>
+<details><summary>Show as a table</summary><table id="tStack"></table></details>
+
+<h2>2 · Which attack techniques get through?</h2>
+<p class="sub">Text filters catch the obvious injections but miss phrasing that reads like a normal business message. Checks outside the model close the gap: with all four layers, no technique succeeded.</p>
+<div class="card">
+  <div class="legend" id="lTech"></div>
+  <div class="chart tall"><canvas id="cTech" role="img" aria-label="Attack success by technique and defence"></canvas></div>
+  <details><summary>Show as a table</summary><table id="tTech"></table></details>
+</div>
+
+<h2>3 · One attack, end to end</h2>
+<p class="sub">A bank-detail-change injection that the undefended agent obeyed, and what each layer saw.</p>
+<div class="trace">
+  <div class="card">
+    <p class="field">Text the agent read (attacker-controlled)</p>
+    <p class="val" id="xText"></p>
+    <p class="field">Expected payee on file</p>
+    <p class="val" id="xExpected"></p>
+    <p class="field">What the agent tried to send</p>
+    <pre id="xXml"></pre>
+  </div>
+  <div class="card">
+    <h3>Defence layers</h3>
+    <p class="note">Real holder of the destination account: <span id="xHolder"></span></p>
+    <ul class="layers" id="xLayers"></ul>
+  </div>
+</div>
+
+<h2>4 · Can fraudsters evade the real-time fraud model?</h2>
+<p class="sub">A gradient-boosted model detects authorised push payment scams and mule activity, tuned so that 1% of genuine payments are flagged. Fraudsters then change one behaviour at a time.</p>
+<div class="card">
+  <div class="legend" id="lFraud"></div>
+  <div class="chart tall"><canvas id="cFraud" role="img" aria-label="Fraud detection rate by evasion strategy"></canvas></div>
+  <p class="note" id="fraudNote" style="margin-top:12px"></p>
+  <details><summary>Show as a table</summary><table id="tFraud"></table></details>
+</div>
+
+<h2>What this shows</h2>
+<ul class="findings">
+  <li><strong>Text filters are not enough.</strong> A pattern-based injection screen cut successful attacks by more than half but let through messages that sound like ordinary supplier emails, and delayed some genuine payments whose wording looked suspicious.</li>
+  <li><strong>Deterministic checks outside the model do the heavy lifting.</strong> Policy as code compares the agent's output with the business's own beneficiary records. It never reads the attacker's text, so it cannot be persuaded. Its weak point is the record itself: if a fraudster gets the supplier record changed first, the check passes.</li>
+  <li><strong>Layers cover each other's gaps.</strong> Confirmation of Payee catches poisoned records but not inflated amounts; policy catches inflated amounts but not poisoned records. Together they stopped every attack in this run.</li>
+  <li><strong>Fraud models learn shortcuts.</strong> The model leaned on "new payee" and "new account" signals. Fraudsters who warm up the payee or use older mule accounts largely disappeared from view. Adversarial training recovered the tactics it was trained on but not the ones it hadn't seen.</li>
+</ul>
+
+<h2>Method and limits</h2>
+<p class="sub">v0.1 is a simulation. The agent follows injected instructions at assumed rates, not rates measured on real models; the human reviewer catch rate and hold delay are also assumptions. All data are synthetic. Zero successes across 1,200 attacks means the true rate is likely below about 0.25%, not that it is zero. The next phase replaces the simulated agent with real LLM agents behind the same interface and repeats every measurement.</p>
+<details><summary>Assumptions used in this run</summary><table id="tAssume"></table></details>
+
+<footer>
+  Built by <a href="https://www.linkedin.com/in/judith-sarjeant-a9b629a3">Judith Ann Sarjeant</a> · Code and method on GitHub · <span id="gen"></span>
+</footer>
+</main>
+
+<script>
+(function () {
+  const R = window.RESULTS;
+  if (!R) { document.querySelector("main").insertAdjacentHTML("afterbegin", "<p>Results not found. Run <code>python poc/run.py</code>.</p>"); return; }
+
+  // Theme toggle
+  const root = document.documentElement;
+  try { const t = localStorage.getItem("theme"); if (t) root.dataset.theme = t; } catch (e) {}
+  document.getElementById("theme").addEventListener("click", () => {
+    const dark = getComputedStyle(root).colorScheme === "dark";
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("theme", root.dataset.theme); } catch (e) {}
+    drawAll();
+  });
+
+  const pct = (x, d = 1) => (x * 100).toFixed(d) + "%";
+  const usd = x => "$" + Math.round(x).toLocaleString("en-US");
+  const css = v => getComputedStyle(root).getPropertyValue(v).trim();
+  const S = Object.fromEntries(R.stacks.map(s => [s.key, s]));
+  const T = R.techniques;
+  const FM = R.fraud_model;
+  const fr = (m, s) => FM.rows.find(r => r.model === m && r.strategy === s);
+
+  // Tiles
+  document.getElementById("t1").textContent = pct(S.none.attack_success_rate);
+  document.getElementById("t1n").textContent = usd(S.none.losses_usd) + " sent to fraudsters";
+  document.getElementById("t2").textContent = pct(S.all.attack_success_rate);
+  document.getElementById("t2n").textContent = usd(S.all.losses_usd) + " lost";
+  document.getElementById("t3").textContent = pct(S.all.legit_friction_rate);
+  document.getElementById("t3n").textContent = "held for review; " + pct(S.all.legit_blocked_rate) + " blocked";
+  document.getElementById("t4").textContent = pct(fr("baseline", "combined").detection_rate);
+  document.getElementById("t4n").textContent = "down from " + pct(fr("baseline", "none").detection_rate) + " before evasion";
+  const c = R.config;
+  document.getElementById("meta").textContent =
+    `Synthetic data · ${c.agent} · ${c.benign_payments.toLocaleString()} genuine payments · ${c.attacks_per_technique * Object.keys(T).length} attacks · v${R.version}`;
+  document.getElementById("gen").textContent = "Generated " + R.generated_utc;
+
+  // Tables
+  const table = (id, head, rows, numCols = []) => {
+    const el = document.getElementById(id);
+    el.innerHTML = "<thead><tr>" + head.map((h, i) => `<th class="${numCols.includes(i) ? "num" : ""}">${h}</th>`).join("") + "</tr></thead><tbody>" +
+      rows.map(r => "<tr>" + r.map((v, i) => `<td class="${numCols.includes(i) ? "num" : ""}">${v}</td>`).join("") + "</tr>").join("") + "</tbody>";
+  };
+  table("tStack", ["Defence stack", "Attacks that moved money", "Losses", "Genuine payments held", "Genuine payments blocked"],
+    R.stacks.map(s => [s.label, pct(s.attack_success_rate), usd(s.losses_usd), pct(s.legit_friction_rate), pct(s.legit_blocked_rate)]), [1, 2, 3, 4]);
+  const techStacks = [["none", "No defences"], ["d1", "Injection screen only"], ["all", "All four layers"]];
+  table("tTech", ["Technique", "What it does", ...techStacks.map(t => t[1])],
+    Object.entries(T).map(([k, t]) => [t.label, t.desc, ...techStacks.map(([s]) => pct(R.by_technique[s][k]))]), [2, 3, 4]);
+  table("tFraud", ["Evasion strategy", "Baseline model", "Adversarially trained", "Seen in training"],
+    FM.rows.filter(r => r.model === "baseline").map(r => [r.label, pct(r.detection_rate), pct(fr("adversarially_trained", r.strategy).detection_rate), r.seen_in_training ? "Yes" : "No"]), [1, 2]);
+  table("tAssume", ["Assumption", "Value"], [
+    ...Object.entries(c.assumed_susceptibility).map(([k, v]) => ["Agent obeys: " + T[k].label, pct(v, 0)]),
+    ["Reviewer stops a held attack", pct(c.human_catch_rate_assumed, 0)],
+    ["Large-value review threshold", usd(c.large_value_threshold_usd)],
+    ["Average hold delay", c.hold_minutes_assumed + " min"],
+  ], [1]);
+  document.getElementById("fraudNote").textContent =
+    "Adversarial training used only: " + FM.adversarial_training_seen.join(" and ") + " (marked *). The other tactics show how it generalises to tactics it never saw.";
+
+  // Walkthrough
+  const X = R.example;
+  if (X) {
+    document.getElementById("xText").textContent = X.free_text;
+    document.getElementById("xExpected").textContent = `${X.expected_payee} · ${X.expected_account} · ${usd(X.amount)}`;
+    document.getElementById("xXml").textContent = X.pacs008_attempted;
+    document.getElementById("xHolder").textContent = X.real_account_holder;
+    const cls = (layer, r) => {
+      const t = r.join(" ");
+      if (/no flag|^pass|below threshold|names match/.test(t)) return ["pass", "pass"];
+      if (/Policy/.test(layer) || /does not match/.test(t)) return ["stop", "block"];
+      return ["warn", "hold"];
+    };
+    document.getElementById("xLayers").innerHTML = X.layers.map(l => {
+      const [k, word] = cls(l.layer, l.result);
+      return `<li><span class="verdict ${k}">${word}</span><div><strong>${l.layer}</strong><div class="why">${l.result.join("; ")}</div></div></li>`;
+    }).join("");
+  }
+
+  // Charts
+  const charts = [];
+  function legend(id, items) {
+    document.getElementById(id).innerHTML = items.map(([label, color]) => `<span style="--c:${color}">${label}</span>`).join("");
+  }
+  function base(maxPct) {
+    const grid = css("--grid"), muted = css("--text-muted"), sec = css("--text-secondary");
+    return {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${pct(ctx.parsed.x ?? ctx.parsed.y)}` } } },
+      font: { family: "IBM Plex Sans" },
+      scales: {
+        x: { grid: { color: grid }, ticks: { color: muted, font: { family: "IBM Plex Sans", size: 12 } }, border: { color: grid } },
+        y: { grid: { color: grid }, ticks: { color: sec, font: { family: "IBM Plex Sans", size: 12 } }, border: { color: grid } },
+      },
+    };
+  }
+  function drawAll() {
+    charts.forEach(ch => ch.destroy()); charts.length = 0;
+    Chart.defaults.font.family = "IBM Plex Sans";
+    const s1 = css("--series-1"), s2 = css("--series-2"), s3 = css("--series-3"), surf = css("--surface-1");
+    const bar = { borderRadius: 4, borderSkipped: "start", borderWidth: 0, maxBarThickness: 22 };
+
+    // Stack charts (horizontal)
+    const labels = R.stacks.map(s => s.label);
+    let o = base(); o.indexAxis = "y";
+    o.scales.x.ticks.callback = v => v + "%"; o.scales.x.min = 0;
+    charts.push(new Chart(document.getElementById("cStack"), { type: "bar",
+      data: { labels, datasets: [{ label: "Attacks that moved money", data: R.stacks.map(s => +(s.attack_success_rate * 100).toFixed(2)), backgroundColor: s1, ...bar }] },
+      options: { ...o, plugins: { ...o.plugins, tooltip: { callbacks: { label: ctx => `${pct(ctx.parsed.x / 100)} · ${usd(R.stacks[ctx.dataIndex].losses_usd)} lost` } } } } }));
+    o = base(); o.indexAxis = "y"; o.scales.x.ticks.callback = v => v + "%"; o.scales.x.min = 0; o.scales.x.suggestedMax = 10;
+    charts.push(new Chart(document.getElementById("cFriction"), { type: "bar",
+      data: { labels, datasets: [{ label: "Genuine payments held or blocked", data: R.stacks.map(s => +(s.legit_friction_rate * 100).toFixed(2)), backgroundColor: s2, ...bar }] },
+      options: { ...o, plugins: { ...o.plugins, tooltip: { callbacks: { label: ctx => `${pct(ctx.parsed.x / 100)} held or blocked` } } } } }));
+
+    // Technique chart
+    const tk = Object.keys(T), cols = [s2, s1, s3];
+    legend("lTech", techStacks.map((t, i) => [t[1], cols[i]]));
+    o = base(); o.scales.y.ticks.callback = v => v + "%"; o.scales.y.min = 0;
+    o.plugins.tooltip.callbacks.label = ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}%`;
+    charts.push(new Chart(document.getElementById("cTech"), { type: "bar",
+      data: { labels: tk.map(k => T[k].label), datasets: techStacks.map(([s, l], i) => ({
+        label: l, data: tk.map(k => +(R.by_technique[s][k] * 100).toFixed(2)), backgroundColor: cols[i], ...bar, borderSkipped: "bottom", borderColor: surf, borderWidth: { left: 1, right: 1 } })) },
+      options: o }));
+
+    // Fraud chart
+    legend("lFraud", [["Baseline model", s1], ["Adversarially trained", s2]]);
+    const strat = FM.rows.filter(r => r.model === "baseline");
+    o = base(); o.scales.y.ticks.callback = v => v + "%"; o.scales.y.min = 0; o.scales.y.max = 100;
+    o.scales.x.ticks.callback = function (v) { const r = strat[v]; return r.label + (r.seen_in_training ? " *" : ""); };
+    o.plugins.tooltip.callbacks.label = ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}% detected`;
+    charts.push(new Chart(document.getElementById("cFraud"), { type: "bar",
+      data: { labels: strat.map(r => r.label), datasets: [
+        { label: "Baseline model", data: strat.map(r => +(r.detection_rate * 100).toFixed(1)), backgroundColor: s1, ...bar, borderSkipped: "bottom" },
+        { label: "Adversarially trained", data: strat.map(r => +(fr("adversarially_trained", r.strategy).detection_rate * 100).toFixed(1)), backgroundColor: s2, ...bar, borderSkipped: "bottom" } ] },
+      options: o }));
+  }
+  drawAll();
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawAll);
+})();
+</script>
+</body>
+</html>
