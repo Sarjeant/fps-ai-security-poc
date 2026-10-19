@@ -9,9 +9,9 @@ This PoC asks two questions:
 1. **If an AI payment agent reads a fraudster's instructions hidden in a payment message, which defences actually stop the money from leaving?**
 2. **If fraudsters change their behaviour, how much does a real-time fraud model miss, and does adversarial training help?**
 
-**[View the interactive dashboard →](https://Sarjeant.github.io/fps-ai-security-poc/)**
+**[View the interactive dashboard →](https://YOUR-USERNAME.github.io/fps-ai-security-poc/)**
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Sarjeant/fps-ai-security-poc/blob/main/notebooks/fps_ai_security_poc.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/YOUR-USERNAME/fps-ai-security-poc/blob/main/notebooks/fps_ai_security_poc.ipynb)
 
 > v0.1 uses synthetic data and a simulated agent. See [Limits](#limits) before citing any number.
 
@@ -82,7 +82,8 @@ A gradient-boosted classifier detects authorised push payment (APP) scams and mu
 
 ## Roadmap
 
-- [ ] Replace the simulated agent with real LLM agents behind the same `decide()` interface and measure actual susceptibility per technique
+- [x] Real LLM agent behind the same interface (`poc/llm_agent.py`, notebook section 8), with baseline and hardened prompts
+- [ ] Larger real-model runs across several providers, with confidence intervals
 - [ ] Add model-based injection classifiers alongside the pattern screen
 - [ ] Test registry-poisoning defences (out-of-band verification of bank-detail changes)
 - [ ] Multi-seed runs with confidence intervals
@@ -105,7 +106,8 @@ Then open `docs/index.html`. The GitHub Action in `.github/workflows/pages.yml` 
 poc/
   payments.py      synthetic payment requests and pacs.008 rendering
   attacks.py       six injection techniques
-  agent.py         the agent under test (simulated in v0.1)
+  agent.py         the simulated agent used for the main results
+  llm_agent.py     a real LLM agent (Gemini, Claude or OpenAI) behind the same interface
   defences.py      D1 to D3; D4 is applied in run.py
   fraud_model.py   fraud classifier, evasion strategies, adversarial training
   run.py           runs everything and writes the results
