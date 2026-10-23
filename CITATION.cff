@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+type: software
+title: "Securing AI agents on instant-payment rails: a proof of concept on AI security for fast payment systems"
+abstract: >-
+  Red-teaming AI payment agents and fraud models on a simulated
+  instant-payment system: prompt injection through payment messages,
+  fraud-model evasion, and which defences stop the money leaving.
+authors:
+  - family-names: Sarjeant
+    given-names: Judith Ann
+    orcid: "https://orcid.org/0009-0004-5012-9694"
+    affiliation: Independent Researcher
+version: 1.1.0
+date-released: "2026-10-23"
+doi: 10.5281/zenodo.23588032
+repository-code: "https://github.com/Sarjeant/fps-ai-security-poc"
+license: MIT
+keywords:
+  - instant payments
+  - fast payment systems
+  - AI security
+  - prompt injection
+  - fraud detection
+  - red teaming
+  - PIX
+  - UPI
