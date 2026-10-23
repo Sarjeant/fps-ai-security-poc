@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/1425997478.svg)](https://doi.org/10.5281/zenodo.23588032)
+
 # Securing AI agents on instant-payment rails
 
 **A proof of concept on AI security for fast payment systems.**
